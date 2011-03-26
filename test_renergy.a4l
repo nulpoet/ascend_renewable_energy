@@ -145,14 +145,14 @@ MODEL heat_transfer_coefficient_convection(
 END heat_transfer_coefficient_convection;
 
 
-MODEL thermo_resistance(
-	T WILL_BE temperature;
-	T_ WILL_BE temperature;
-	E WILL_BE solver_var;
-	E_ WILL_BE solver_var;
-	spacing WILL_BE distance;
-	tilt WILL_BE angle;
-	);
+MODEL thermo_resistance;
+	T IS_A temperature;
+	T_ IS_A temperature;
+	E IS_A solver_var;
+	E_ IS_A solver_var;
+	spacing IS_A distance;
+	tilt IS_A angle;
+
 	
 	value IS_A solver_var;
 	
@@ -163,8 +163,6 @@ MODEL thermo_resistance(
 
 	METHODS
 		METHOD specify;
-			FIX T;
-			FIX T_;
 			FIX E;
 			FIX E_;
 			FIX spacing;
@@ -180,27 +178,23 @@ END thermo_resistance;
 
 MODEL test_thermo_resistance;
 
-	T1, T2 	IS_A temperature;
-	E1 		IS_A solver_var;
-	E2 		IS_A solver_var;
-	spacing IS_A distance;
-	tilt 	IS_A angle;
-
-	R 		IS_A thermo_resistance(T1, T2, E1, E2, spacing, tilt);
+	R IS_A thermo_resistance;
 
 	METHODS
 		METHOD specify;
 			RUN ClearAll;
 			RUN R.specify;
+			FIX R.T;
+			FIX R.T_;
 		END specify;
 
 		METHOD values;			
-			T1 :=  60 {K} + 273.15 {K};
-			T2 :=  30 {K} + 273.15 {K};
-			E1 := 0.6;
-			E2 := 0.7;
-			spacing := 2 {cm};
-			tilt := 0.2 {rad};			
+			R.T :=  60 {K} + 273.15 {K};
+			R.T_ :=  30 {K} + 273.15 {K};
+			R.E := 0.6;
+			R.E_ := 0.7;
+			R.spacing := 2 {cm};
+			R.tilt := 0.2 {rad};			
 		END values;
 	
 		METHOD on_load;
@@ -220,21 +214,28 @@ MODEL flat_plate_collector;
 	NR IS_A integer_constant;
 	Covers[1..NR] IS_A thermo_resistance;
 
+	Ut IS_A solver_var;
+
 	Covers[1].T_, Tp ARE_THE_SAME;
 
 	FOR i IN [2..NR] CREATE
-		Covers[i].T_, Covers[i-1].T ARE_THE_SAME;
+		Covers[i].T_ , Covers[i-1].T ARE_THE_SAME;
+		Covers[i].E_ , Covers[i-1].E ARE_THE_SAME;
     END FOR;
 
-	Ut = 1 / SUM[Covers[1..NR].value] ;
+	Ut = 1 / SUM[Covers[1..NR].value];
+	
+	Covers[1].T = Tp - Covers[1].value * Ut * (Tp-Ta);
 
 	FOR i IN [2..NR] CREATE
-		Covers[i].T_ = Covers[i-1].T_ - Covers[i].value * Ut * (Tp-Ta);
+		Covers[i].T = Covers[i-1].T - Covers[i].value * Ut * (Tp-Ta);
     END FOR;
-
+	
 
 	METHODS
 		METHOD specify;
+			FIX Ta;
+			FIX Tp;
 		    FOR i IN [1..NR] DO
 		        RUN Covers[i].specify;
 		    END FOR;
@@ -250,26 +251,45 @@ MODEL test_flat_plate_collector;
 
     fpcollector.NR :==  3;
 
-METHODS
+	METHODS
 
-    METHOD values;
+		METHOD values;
+		    fpcollector.Tp := 70 {K} + 273.15 {K};
+		    fpcollector.Ta := 30 {K} + 273.15 {K};
+		
+			fpcollector.Covers[1].tilt := 0.8 {rad};
+			fpcollector.Covers[2].tilt := 0.8 {rad};
+			fpcollector.Covers[3].tilt := 0.8 {rad};
+		
+			RUN values1;
+			RUN values2;
+			RUN values3;
+		END values;
+	   
+		METHOD values1;
+			fpcollector.Covers[1].E 		:= 	0.6;
+			fpcollector.Covers[1].spacing 	:= 	2 {cm};
+		END values1;
 
-        tankFarm.metal_density              := 7.85 {g/cm^3};
-        tankFarm.tank[1].side.D             := 5 {m};
+		METHOD values2;
+			fpcollector.Covers[2].E 		:= 	0.6;
+			fpcollector.Covers[2].spacing 	:= 	2 {cm};
+		END values2;
 
-        tankFarm.tank[2].side.D             := 6 {m};
-
-        tankFarm.tank[3].side.D             := 7 {m};
-
-        tankFarm.tank[1..3].side.H          := 6 {m};
-
-        tankFarm.tank[1..3].wall_thickness  := 1.5 {cm};
-
-    END values;
-    METHOD specify;
-        RUN tankFarm.tank[1..3].specify;
-
-    END specify;
-
+		METHOD values3;
+			fpcollector.Covers[3].E 		:= 	0.6;
+			fpcollector.Covers[3].spacing 	:= 	2 {cm};
+		END values3;
+		
+		METHOD specify;			
+		    RUN fpcollector.specify;
+		END specify;
+	
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+		
 END test_flat_plate_collector;
+
 
