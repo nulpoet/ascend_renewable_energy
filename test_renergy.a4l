@@ -1,0 +1,295 @@
+REQUIRE "atoms.a4l";
+
+
+MODEL heat_transfer_coefficient_radiance(
+	T1 WILL_BE temperature;
+	T2 WILL_BE temperature;
+	E1 WILL_BE solver_var;
+	E2 WILL_BE solver_var;
+	);
+	
+	value IS_A solver_var;
+	
+	value = 6*(T1 + T2)*(T1^2 + T2^2) / (1/E1 + 1/E2 - 1);	
+	
+END heat_transfer_coefficient_radiance;
+
+
+MODEL test_radiance;
+
+	T1 IS_A temperature;
+	T2 IS_A temperature;
+	E1 IS_A solver_var;
+	E2 IS_A solver_var;
+	
+	h_r IS_A heat_transfer_coefficient_radiance(T1, T2, E1, E2);
+
+	METHODS
+		METHOD specify;
+			FIX T1;
+			FIX T2;
+			FIX E1;
+			FIX E2;
+		END specify;
+		METHOD values;
+			T1 := 60 {K} + 247 {K};
+			T2 := 30 {K} + 247 {K};
+			E1 := 0.6;
+			E2 := 0.7;
+		END values;
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;	
+
+END test_radiance;
+
+
+
+MODEL ifpos(
+	n WILL_BE solver_var;
+	);
+	
+	value IS_A solver_var;	
+	
+	value = n;
+
+(*	IF n>0 THEN
+	value = n;
+	ELSE
+	value = 0;
+	END IF;
+*)
+
+END ifpos;	
+
+
+MODEL Nusselt_number(
+	T1 WILL_BE temperature;
+	T2 WILL_BE temperature;
+	B WILL_BE angle;
+	L WILL_BE distance;
+	);
+
+	g IS_A acceleration;
+	value IS_A solver_var;
+	dT IS_A solver_var;
+	Ra IS_A solver_var;
+	t1 IS_A solver_var;
+	t2 IS_A solver_var;
+	tt IS_A solver_var;
+	
+	g = 9.8 {m/s^2};
+	dT = T2 - T1;
+	Ra = g * B * dT * L^3;
+
+	t1 = (1 - 1708/(Ra*cos(B)));
+	tt = (Ra * cos(B)/5830);
+	t2 = tt^(1.0);
+	
+(*	t2 = (Ra * cos(B)/5830)^(1/3); *)
+	
+	value = 1 + 1.44*(1- 1708*((sin(1.8*B))^1.6)/(Ra*cos(B)) )* t1 + t2;
+END Nusselt_number;
+
+
+MODEL test_Nusselt_number;
+
+	T1 IS_A temperature;
+	T2 IS_A temperature;
+	B IS_A angle;
+	L IS_A distance;
+
+	h_c IS_A Nusselt_number(T1, T2, B, L);
+
+	METHODS
+		METHOD specify;
+			FIX T1;
+			FIX T2;
+			FIX B;
+			FIX L;
+		END specify;
+		METHOD values;
+			T1 := 60 {K} + 247 {K};
+			T2 := 30 {K} + 247 {K};
+			B := 1.0 {rad};
+			L := 2 {cm};
+		END values;
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;	
+
+END test_Nusselt_number;
+
+
+MODEL air_themal_conductivity;
+	value IS_A solver_var;
+	value = 1;
+END air_themal_conductivity;
+
+
+MODEL heat_transfer_coefficient_convection(
+	T1 WILL_BE temperature;
+	T2 WILL_BE temperature;
+	spacing  WILL_BE distance;
+	B WILL_BE angle;
+	);
+	
+	value IS_A solver_var;
+	
+	Nu IS_A Nusselt_number(T1, T2, B, spacing);
+	K IS_A air_themal_conductivity;
+		
+	value = Nu.value * K.value / spacing;	
+END heat_transfer_coefficient_convection;
+
+
+MODEL thermo_resistance;
+	T IS_A temperature;
+	T_ IS_A temperature;
+	E IS_A solver_var;
+	E_ IS_A solver_var;
+	spacing IS_A distance;
+	tilt IS_A angle;
+
+	
+	value IS_A solver_var;
+	
+	h_r IS_A heat_transfer_coefficient_radiance(T, T_, E, E_ );
+    h_c IS_A heat_transfer_coefficient_convection(T, T_, spacing, tilt );
+    
+	value = 1/(h_c.value + h_r.value);
+
+	METHODS
+		METHOD specify;
+			FIX E;
+			FIX E_;
+			FIX spacing;
+			FIX tilt;
+		END specify;
+		
+END thermo_resistance;
+
+
+
+
+
+
+MODEL test_thermo_resistance;
+
+	R IS_A thermo_resistance;
+
+	METHODS
+		METHOD specify;
+			RUN ClearAll;
+			RUN R.specify;
+			FIX R.T;
+			FIX R.T_;
+		END specify;
+
+		METHOD values;			
+			R.T :=  60 {K} + 273.15 {K};
+			R.T_ :=  30 {K} + 273.15 {K};
+			R.E := 0.6;
+			R.E_ := 0.7;
+			R.spacing := 2 {cm};
+			R.tilt := 0.2 {rad};			
+		END values;
+	
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+
+END test_thermo_resistance;
+
+
+
+MODEL flat_plate_collector;
+
+	Tp IS_A temperature;
+	Ta IS_A temperature;
+
+	NR IS_A integer_constant;
+	Covers[1..NR] IS_A thermo_resistance;
+
+	Ut IS_A solver_var;
+
+	Covers[1].T_, Tp ARE_THE_SAME;
+
+	FOR i IN [2..NR] CREATE
+		Covers[i].T_ , Covers[i-1].T ARE_THE_SAME;
+		Covers[i].E_ , Covers[i-1].E ARE_THE_SAME;
+    END FOR;
+
+	Ut = 1 / SUM[Covers[1..NR].value];
+	
+	Covers[1].T = Tp - Covers[1].value * Ut * (Tp-Ta);
+
+	FOR i IN [2..NR] CREATE
+		Covers[i].T = Covers[i-1].T - Covers[i].value * Ut * (Tp-Ta);
+    END FOR;
+	
+
+	METHODS
+		METHOD specify;
+			FIX Ta;
+			FIX Tp;
+		    FOR i IN [1..NR] DO
+		        RUN Covers[i].specify;
+		    END FOR;
+		END specify;
+	
+
+END flat_plate_collector;
+
+
+
+MODEL test_flat_plate_collector;
+    fpcollector IS_A flat_plate_collector;
+
+    fpcollector.NR :==  3;
+
+	METHODS
+
+		METHOD values;
+		    fpcollector.Tp := 70 {K} + 273.15 {K};
+		    fpcollector.Ta := 30 {K} + 273.15 {K};
+		
+			fpcollector.Covers[1].tilt := 0.8 {rad};
+			fpcollector.Covers[2].tilt := 0.8 {rad};
+			fpcollector.Covers[3].tilt := 0.8 {rad};
+		
+			RUN values1;
+			RUN values2;
+			RUN values3;
+		END values;
+	   
+		METHOD values1;
+			fpcollector.Covers[1].E 		:= 	0.6;
+			fpcollector.Covers[1].spacing 	:= 	2 {cm};
+		END values1;
+
+		METHOD values2;
+			fpcollector.Covers[2].E 		:= 	0.6;
+			fpcollector.Covers[2].spacing 	:= 	2 {cm};
+		END values2;
+
+		METHOD values3;
+			fpcollector.Covers[3].E 		:= 	0.6;
+			fpcollector.Covers[3].spacing 	:= 	2 {cm};
+		END values3;
+		
+		METHOD specify;			
+		    RUN fpcollector.specify;
+		END specify;
+	
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+		
+END test_flat_plate_collector;
+
+
