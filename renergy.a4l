@@ -1,6 +1,17 @@
 REQUIRE "atoms.a4l";
 
 
+MODEL stefans_constant;
+	value IS_A solver_var;
+	value = 5.67e-8;
+	
+	METHODS
+		METHOD specify;
+			FIX value;
+		END specify;
+END stefans_constant;
+
+
 MODEL heat_transfer_coefficient_radiance(
 	T1 WILL_BE temperature;
 	T2 WILL_BE temperature;
@@ -8,9 +19,10 @@ MODEL heat_transfer_coefficient_radiance(
 	E2 WILL_BE solver_var;
 	);
 	
+	sigma IS_A stefans_constant;
 	value IS_A solver_var;
 	
-	value = 6*(T1 + T2)*(T1^2 + T2^2) / (1/E1 + 1/E2 - 1);	
+	value = sigma.value*(T1 + T2)*(T1^2 + T2^2) / (1/E1 + 1/E2 - 1);	
 	
 END heat_transfer_coefficient_radiance;
 
@@ -43,7 +55,6 @@ MODEL test_radiance;
 		END on_load;	
 
 END test_radiance;
-
 
 
 MODEL ifpos(
@@ -85,7 +96,7 @@ MODEL Nusselt_number(
 
 	t1 = (1 - 1708/(Ra*cos(B)));
 	tt = (Ra * cos(B)/5830);
-	t2 = tt^(0.3);
+	t2 = tt^(1.0) - 1;
 	
 (*	t2 = (Ra * cos(B)/5830)^(1/3); *)
 	
@@ -125,7 +136,7 @@ END test_Nusselt_number;
 
 MODEL air_themal_conductivity;
 	value IS_A solver_var;
-	value = 1;
+	value = 0.0253;
 END air_themal_conductivity;
 
 
@@ -167,17 +178,41 @@ MODEL thermo_resistance;
 			FIX E_;
 			FIX spacing;
 			FIX tilt;
+			RUN h_r.sigma.specify; 
 		END specify;
 		
 END thermo_resistance;
 
 
+MODEL thermo_resistance_ambient;
+	Ta IS_A temperature;
+	Ttop IS_A temperature;
+	Etop IS_A solver_var;
+	sigma IS_A stefans_constant;	
+	Ts IS_A solver_var;
+	value IS_A solver_var;
+	h_r_a IS_A solver_var;
+	h_c_a IS_A solver_var;
 
+	Ts = 0.0552*(Ta^1.5);
+	h_r_a = Etop * sigma.value * (Ttop^4 - Ts^4) / (Ttop - Ta);
+	
+	h_c_a = 10;
+	
+	value = 1/(h_r_a + h_c_a);
+	
+	METHODS
+		METHOD specify;
+			FIX h_c_a;
+			FIX Ta;
+			FIX Etop;
+			RUN sigma.specify;
+		END specify;
 
+END thermo_resistance_ambient;
 
 
 MODEL test_thermo_resistance;
-
 	R IS_A thermo_resistance;
 
 	METHODS
@@ -205,79 +240,106 @@ MODEL test_thermo_resistance;
 END test_thermo_resistance;
 
 
+MODEL absorbed_radiations;
+	value IS_A solver_var;
+	value = 10000000 {J/m^2};
+	
+	METHODS
+		METHOD specify;
+			FIX value;
+		END specify;
+
+END absorbed_radiations;
+
 
 MODEL flat_plate_collector;
 
-	Tp IS_A temperature;
+	Qu IS_A solver_var;
+
+	A IS_A area;
+	S IS_A absorbed_radiations;
+	
 	Ta IS_A temperature;
+
+	Tp IS_A temperature;
+
+	Ep IS_A solver_var;
 
 	NR IS_A integer_constant;
 	Covers[1..NR] IS_A thermo_resistance;
 
+	Rtop IS_A thermo_resistance_ambient;
+
+	Ta, Rtop.Ta ARE_THE_SAME;
+	Covers[NR].T, Rtop.Ttop ARE_THE_SAME;
+	Covers[NR].E, Rtop.Etop ARE_THE_SAME;
+	
 	Ut IS_A solver_var;
 
 	Covers[1].T_, Tp ARE_THE_SAME;
-
+	Covers[1].E_, Ep ARE_THE_SAME;
 	FOR i IN [2..NR] CREATE
 		Covers[i].T_ , Covers[i-1].T ARE_THE_SAME;
 		Covers[i].E_ , Covers[i-1].E ARE_THE_SAME;
     END FOR;
-
-	Ut = 1 / SUM[Covers[1..NR].value];
 	
 	Covers[1].T = Tp - Covers[1].value * Ut * (Tp-Ta);
 
 	FOR i IN [2..NR] CREATE
 		Covers[i].T = Covers[i-1].T - Covers[i].value * Ut * (Tp-Ta);
     END FOR;
-	
 
+	Ut = 1 / (SUM[Covers[1..NR].value] + Rtop.value);
+	Qu = A*(S.value-Ut*(Tp-Ta));
+	
 	METHODS
-		METHOD specify;
-			FIX Ta;
+		METHOD specify;			
+			FIX A;
 			FIX Tp;
+			FIX Ta;
+			FIX Ep;
+			
+			RUN S.specify;
+			
 		    FOR i IN [1..NR] DO
 		        RUN Covers[i].specify;
 		    END FOR;
 		END specify;
-	
-
+		
 END flat_plate_collector;
-
 
 
 MODEL test_flat_plate_collector;
     fpcollector IS_A flat_plate_collector;
 
-    fpcollector.NR :==  3;
+    fpcollector.NR :==  1;
 
 	METHODS
-
 		METHOD values;
-		    fpcollector.Tp := 70 {K} + 273.15 {K};
 		    fpcollector.Ta := 30 {K} + 273.15 {K};
+   		    fpcollector.Tp := 80 {K} + 273.15 {K};
+		    
+		    fpcollector.Ep := 0.95;
+		    
+		    fpcollector.A := 1 {m^2};
 		
-			fpcollector.Covers[1].tilt := 0.8 {rad};
-			fpcollector.Covers[2].tilt := 0.8 {rad};
-			fpcollector.Covers[3].tilt := 0.8 {rad};
+			fpcollector.Covers[1].tilt := 0.785 {rad}; (*45 degrees*)
 		
-			RUN values1;
-			RUN values2;
-			RUN values3;
+			RUN values1;			
 		END values;
 	   
 		METHOD values1;
-			fpcollector.Covers[1].E 		:= 	0.6;
+			fpcollector.Covers[1].E 		:= 	0.8;
 			fpcollector.Covers[1].spacing 	:= 	2 {cm};
 		END values1;
 
 		METHOD values2;
-			fpcollector.Covers[2].E 		:= 	0.6;
+			fpcollector.Covers[2].E 		:= 	0.8;
 			fpcollector.Covers[2].spacing 	:= 	2 {cm};
 		END values2;
 
 		METHOD values3;
-			fpcollector.Covers[3].E 		:= 	0.6;
+			fpcollector.Covers[3].E 		:= 	0.8;
 			fpcollector.Covers[3].spacing 	:= 	2 {cm};
 		END values3;
 		
