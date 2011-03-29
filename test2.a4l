@@ -2,8 +2,8 @@ REQUIRE "atoms.a4l";
 
 
 MODEL heat_transfer_coefficient_radiance(
-	T1 WILL_BE temperature;
-	T2 WILL_BE temperature;
+	T1 WILL_BE solver_var;
+	T2 WILL_BE solver_var;
 	E1 WILL_BE solver_var;
 	E2 WILL_BE solver_var;
 	);
@@ -17,8 +17,8 @@ END heat_transfer_coefficient_radiance;
 
 MODEL test_radiance;
 
-	T1 IS_A temperature;
-	T2 IS_A temperature;
+	T1 IS_A solver_var;
+	T2 IS_A solver_var;
 	E1 IS_A solver_var;
 	E2 IS_A solver_var;
 	
@@ -64,13 +64,13 @@ END ifpos;
 
 
 MODEL Nusselt_number(
-	T1 WILL_BE temperature;
-	T2 WILL_BE temperature;
+	T1 WILL_BE solver_var;
+	T2 WILL_BE solver_var;
 	B WILL_BE angle;
-	L WILL_BE distance;
+	L WILL_BE solver_var;
 	);
 
-	g IS_A acceleration;
+	g IS_A solver_var;
 	value IS_A solver_var;
 	dT IS_A solver_var;
 	Ra IS_A solver_var;
@@ -78,7 +78,7 @@ MODEL Nusselt_number(
 	t2 IS_A solver_var;
 	tt IS_A solver_var;
 	
-	g = 9.8 {m/s^2};
+	g = 9.8 ;
 	dT = T2 - T1;
 	Ra = g * B * dT * L^3;
 
@@ -93,10 +93,10 @@ END Nusselt_number;
 
 MODEL test_Nusselt_number;
 
-	T1 IS_A temperature;
-	T2 IS_A temperature;
+	T1 IS_A solver_var;
+	T2 IS_A solver_var;
 	B IS_A angle;
-	L IS_A distance;
+	L IS_A solver_var;
 
 	h_c IS_A Nusselt_number(T1, T2, B, L);
 
@@ -128,9 +128,9 @@ END air_themal_conductivity;
 
 
 MODEL heat_transfer_coefficient_convection(
-	T1 WILL_BE temperature;
-	T2 WILL_BE temperature;
-	spacing  WILL_BE distance;
+	T1 WILL_BE solver_var;
+	T2 WILL_BE solver_var;
+	spacing  WILL_BE solver_var;
 	B WILL_BE angle;
 	);
 	
@@ -144,11 +144,11 @@ END heat_transfer_coefficient_convection;
 
 
 MODEL cover(
-	T WILL_BE temperature;
-	T_ WILL_BE temperature;
+	T WILL_BE solver_var;
+	T_ WILL_BE solver_var;
 	E WILL_BE fraction;
 	E_ WILL_BE fraction;
-	spacing WILL_BE distance;
+	spacing WILL_BE solver_var;
 	tilt WILL_BE angle;
 );
 	
@@ -170,21 +170,21 @@ END cover;
 
 
 MODEL topcover_to_atmosphere(
-	Ta WILL_BE temperature;
-	Ttop WILL_BE temperature;
+	Ta WILL_BE solver_var;
+	Ttop WILL_BE solver_var;
 	Etop WILL_BE fraction;
 );
 	Ts IS_A solver_var;
 	thermal_resistance IS_A solver_var;
-	h_r IS_A solver_var;
-	h_c IS_A solver_var;
+	h_r_a IS_A solver_var;
+	h_c_a IS_A solver_var;
 
 	Ts = 0.0552*(Ta^1.5);
-	h_r = Etop * 5.67e-8 * (Ttop^4 - Ts^4) / (Ttop - Ta);
+	h_r_a = Etop * 5.67e-8 * (Ttop^4 - Ts^4) / (Ttop - Ta);
 	
-	h_c = 10;
+	h_c_a = 10;
 	
-	thermal_resistance = 1/(h_r + h_c );
+	thermal_resistance = 1/(h_r_a + h_c_a );
 	
 	METHODS
 		METHOD specify;
@@ -209,20 +209,20 @@ END absorbed_radiations;
 
 MODEL flat_plate_collector;
 
-	A IS_A area;
+	A IS_A solver_var;
 	tilt IS_A angle;
 	S IS_A absorbed_radiations;	
-	Ta IS_A temperature;
-	Tp IS_A temperature;
+	Ta IS_A solver_var;
+	Tp IS_A solver_var;
 	Ep IS_A fraction;
 	Ec IS_A fraction;
-	cover_spacing IS_A distance;
+	spacing IS_A solver_var;
 
-	Tc IS_A temperature;
+	Tc IS_A solver_var;
 	Ut IS_A solver_var;
 	Qu IS_A solver_var;	
 	
-	Cover IS_A cover( Tc, Tp, Ec, Ep, cover_spacing, tilt );
+	Cover IS_A cover( Tc, Tp, Ec, Ep, spacing, tilt );
 	Rtop IS_A topcover_to_atmosphere( Ta, Tc, Ec );
 
 	Cover.T = Tp - Cover.thermal_resistance * Ut * (Tp-Ta);
@@ -239,7 +239,7 @@ MODEL flat_plate_collector;
 			FIX Ep;
 
 	    	FIX Ec;
-	    	FIX cover_spacing;
+	    	FIX spacing;
 	        RUN Cover.specify;
 
 		END specify;		
@@ -250,22 +250,25 @@ MODEL test_flat_plate_collector;
     fpcollector IS_A flat_plate_collector;
 
 	METHODS
-		METHOD values;
-		
-			fpcollector.S.value := 10000000 {J/m^2};
-		
-		    fpcollector.Ta := 30 {K} + 273.15 {K};
-   		    fpcollector.Tp := 80 {K} + 273.15 {K};
+		METHOD values;			
+			fpcollector.S.value := 10000000;
+			
+		    fpcollector.Ta := 30 + 273.15;
+   		    fpcollector.Tp := 80 + 273.15;
 		    
 		    fpcollector.Ep := 0.95;
 		    
-		    fpcollector.A := 1 {m^2};
+		    fpcollector.A := 1;
 		
-			fpcollector.tilt := 0.785 {rad};
-
-			fpcollector.Ec 		:= 	0.8;
-			fpcollector.cover_spacing 	:= 	2 {cm};
+			fpcollector.tilt := 0.785 {rad}; (*45 degrees*)
+		
+			RUN values1;			
 		END values;
+	   
+		METHOD values1;
+			fpcollector.Ec 		:= 	0.8;
+			fpcollector.spacing 	:= 	0.02;
+		END values1;
 		
 		METHOD specify;			
 		    RUN fpcollector.specify;
