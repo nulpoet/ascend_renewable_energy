@@ -45,24 +45,6 @@ MODEL test_radiance;
 END test_radiance;
 
 
-MODEL ifpos(
-	n WILL_BE solver_var;
-	);
-	
-	value IS_A solver_var;	
-	
-	value = n;
-
-(*	IF n>0 THEN
-	value = n;
-	ELSE
-	value = 0;
-	END IF;
-*)
-
-END ifpos;	
-
-
 MODEL Nusselt_number(
 	T1 WILL_BE temperature;
 	T2 WILL_BE temperature;
@@ -76,18 +58,19 @@ MODEL Nusselt_number(
 	Ra IS_A solver_var;
 	t1 IS_A solver_var;
 	t2 IS_A solver_var;
-	tt IS_A solver_var;
+	tt1 IS_A solver_var;
+	tt2 IS_A solver_var;
 	
 	g = 9.8 {m/s^2};
-	dT = T2 - T1;
+	dT = abs(T1-T2);
 	Ra = g * B * dT * L^3;
 
-	t1 = (1 - 1708/(Ra*cos(B) ) );
-	tt = (Ra * cos(B)/5830);
-	t2 = tt^(1.0) - 1;
-
+	tt1 = (1 - 1708/(Ra*cos(B) ) );
+	t1 = (abs(tt1) + tt1 )/ 2;
+	tt2 = (Ra * cos(B)/5830)^(0.3) - 1;
+	t2 = (abs(tt2) + tt2 )/ 2;
 	
-	value = 1 + 1.44*(1- 1708*((sin(1.8*B))^1.6)/(Ra*cos(B) ) )* t1 + t2;
+	value = 1 + 1.44 * (1- 1708*((sin(1.8 * B)) ^ 1.6) / (Ra * cos(B))) * t1 + t2;
 END Nusselt_number;
 
 
