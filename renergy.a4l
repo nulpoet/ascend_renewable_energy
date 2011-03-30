@@ -32,8 +32,8 @@ MODEL test_radiance;
 			FIX E2;
 		END specify;
 		METHOD values;
-			T1 := 60 {K} + 247 {K};
-			T2 := 30 {K} + 247 {K};
+			T1 := 60 {K} + 273.15 {K};
+			T2 := 30 {K} + 273.15 {K};
 			E1 := 0.6;
 			E2 := 0.7;
 		END values;
@@ -92,7 +92,6 @@ END Nusselt_number;
 
 
 MODEL test_Nusselt_number;
-
 	T1 IS_A temperature;
 	T2 IS_A temperature;
 	B IS_A angle;
@@ -108,8 +107,8 @@ MODEL test_Nusselt_number;
 			FIX L;
 		END specify;
 		METHOD values;
-			T1 := 60 {K} + 247 {K};
-			T2 := 30 {K} + 247 {K};
+			T1 := 60 {K} + 273.15 {K};
+			T2 := 30 {K} + 273.15 {K};
 			B := 0.85 {rad};
 			L := 1.8 {cm};
 		END values;
@@ -117,7 +116,6 @@ MODEL test_Nusselt_number;
 			RUN specify;
 			RUN values;
 		END on_load;	
-
 END test_Nusselt_number;
 
 
@@ -168,6 +166,42 @@ MODEL cover(
 		END specify;		
 END cover;
 
+MODEL test_cover;
+	T IS_A temperature;
+	T_ IS_A temperature;
+	E IS_A fraction;
+	E_ IS_A fraction;
+	spacing IS_A distance;
+	tilt IS_A angle;
+
+    Cover IS_A cover(T, T_, E, E_, spacing,	tilt);
+
+	METHODS
+		METHOD values;		
+		    T := 60 {K} + 273.15 {K};
+		    T_ := 90 {K} + 273.15 {K};
+
+   		    E := 0.8;
+   		    E_ := 0.95;
+		    
+		    spacing := 2 {cm};		    
+			tilt := 0.785 {rad};
+		END values;
+		
+		METHOD specify;			
+		    FIX T;
+		    FIX T_;
+		    FIX E;
+		    FIX E_;
+		    FIX spacing;
+		    FIX tilt;
+		END specify;
+	
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+END test_cover;
 
 MODEL topcover_to_atmosphere(
 	Ta WILL_BE temperature;
@@ -180,7 +214,7 @@ MODEL topcover_to_atmosphere(
 	h_c IS_A solver_var;
 
 	Ts = 0.0552*(Ta^1.5);
-	h_r = Etop * 5.67e-8 * (Ttop^4 - Ts^4) / (Ttop - Ta);
+	h_r * (Ttop - Ta) = Etop * 5.67e-8 * (Ttop^4 - Ts^4);
 	
 	h_c = 10;
 	
@@ -195,23 +229,123 @@ MODEL topcover_to_atmosphere(
 END topcover_to_atmosphere;
 
 
+MODEL test_topcover_to_atmosphere;
+	Ta IS_A temperature;
+	Ttop IS_A temperature;
+	Etop IS_A fraction;
+
+    Rtop IS_A topcover_to_atmosphere (Ta, Ttop, Etop);
+
+	METHODS
+		METHOD values;		
+		    Ta := 30 {K} + 273.15 {K};
+		    Ttop := 60 {K} + 273.15 {K};
+
+   		    Etop := 0.8;
+		END values;
+		
+		METHOD specify;			
+		    FIX Ta;
+		    FIX Ttop;
+		    FIX Etop;
+		END specify;
+	
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+END test_topcover_to_atmosphere;
+
 
 MODEL absorbed_radiations;
+	value IS_A solver_var;	
+	METHODS
+		METHOD specify;
+			FIX value;
+		END specify;
+END absorbed_radiations;
+
+
+MODEL heat_loss(
+	Tp WILL_BE temperature;
+	Ta WILL_BE temperature;
+	Cover WILL_BE cover;
+	Rtop WILL_BE topcover_to_atmosphere;
+);
 	value IS_A solver_var;
+	Ut IS_A solver_var;
+	
+	Ut * ( Cover.thermal_resistance + Rtop.thermal_resistance ) = 1;
+	value = Ut*(Tp-Ta);
 	
 	METHODS
 		METHOD specify;
 			FIX value;
 		END specify;
+END heat_loss;
 
-END absorbed_radiations;
+
+MODEL test_heat_loss;
+	Ta IS_A temperature;
+	Ttop IS_A temperature;
+	Etop IS_A fraction;
+
+    Rtop IS_A topcover_to_atmosphere (Ta, Ttop, Etop);
+
+	T IS_A temperature;
+	T_ IS_A temperature;
+	E IS_A fraction;
+	E_ IS_A fraction;
+	spacing IS_A distance;
+	tilt IS_A angle;
+
+    Cover IS_A cover(T, T_, E, E_, spacing,	tilt);
+
+	Tp IS_A temperature;
+
+	Heat_Loss IS_A heat_loss (Tp, Ta, Cover, Rtop);
+
+	METHODS
+		METHOD values;		
+		    Ta := 30 {K} + 273.15 {K};
+		    Ttop := 60 {K} + 273.15 {K};
+   		    Etop := 0.8;
+   		    
+   		    T := 60 {K} + 273.15 {K};
+   		    T_ := 90 {K} + 273.15 {K};
+   		    E := 0.8;
+   		    E_ := 0.95;		    
+		    spacing := 2 {cm};		    
+			tilt := 0.785 {rad};
+		
+   		    Tp := 90 {K} + 273.15 {K};
+		END values;
+		
+		METHOD specify;			
+		    FIX Ta;
+		    FIX Ttop;
+		    FIX Etop;
+		    FIX T;
+		    FIX T_;
+		    FIX E;
+		    FIX E_;
+		    FIX spacing;
+		    FIX tilt;
+		    FIX Tp;
+		END specify;
+	
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+END test_heat_loss;
 
 
 MODEL flat_plate_collector;
-
 	A IS_A area;
 	tilt IS_A angle;
-	S IS_A absorbed_radiations;	
+	Heat_Absorbed IS_A absorbed_radiations;	
+	Heat_Loss IS_A heat_loss (Tp, Ta, Cover, Rtop);
 	Ta IS_A temperature;
 	Tp IS_A temperature;
 	Ep IS_A fraction;
@@ -219,21 +353,21 @@ MODEL flat_plate_collector;
 	cover_spacing IS_A distance;
 
 	Tc IS_A temperature;
-	Ut IS_A solver_var;
+
 	Qu IS_A solver_var;	
 	
-	Cover IS_A cover( Tc, Tp, Ec, Ep, cover_spacing, tilt );
-	Rtop IS_A topcover_to_atmosphere( Ta, Tc, Ec );
+	Cover IS_A cover (Tc, Tp, Ec, Ep, cover_spacing, tilt);
+	Rtop IS_A topcover_to_atmosphere (Ta, Tc, Ec);
 
-	Cover.T = Tp - Cover.thermal_resistance * Ut * (Tp-Ta);
-	Ut = 1 / ( Cover.thermal_resistance + Rtop.thermal_resistance );
-	Qu = A*( S.value -Ut*(Tp-Ta));
+	Cover.T = Tp - Cover.thermal_resistance * Heat_Loss.Ut * (Tp-Ta);
+	
+	Qu = A * (Heat_Absorbed.value - Heat_Loss.value);
 	
 	METHODS
 		METHOD specify;			
 			FIX A;
 			FIX tilt;
-			FIX S.value;
+			FIX Heat_Absorbed.value;
 			FIX Ta;
 			FIX Tp;
 			FIX Ep;
@@ -255,7 +389,8 @@ MODEL test_flat_plate_collector;
 			fpcollector.S.value := 10000000 {J/m^2};
 		
 		    fpcollector.Ta := 30 {K} + 273.15 {K};
-   		    fpcollector.Tp := 80 {K} + 273.15 {K};
+   		    fpcollector.Tp := 90 {K} + 273.15 {K};
+
 		    
 		    fpcollector.Ep := 0.95;
 		    
