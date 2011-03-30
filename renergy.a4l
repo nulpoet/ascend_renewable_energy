@@ -369,7 +369,7 @@ MODEL test_flat_plate_collector;
 	METHODS
 		METHOD values;
 		
-			fpcollector.S.value := 10000000 {J/m^2};
+			fpcollector.Heat_Absorbed.value := 10000000 {J/m^2};
 		
 		    fpcollector.Ta := 30 {K} + 273.15 {K};
    		    fpcollector.Tp := 90 {K} + 273.15 {K};
