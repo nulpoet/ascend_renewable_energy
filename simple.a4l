@@ -1,0 +1,84 @@
+REQUIRE "atoms.a4l";
+
+MODEL simple;
+
+	Ta IS_A solver_var;
+	Tp IS_A solver_var;
+	Ec IS_A solver_var;
+	Ep IS_A solver_var;
+	K IS_A solver_var;
+	B IS_A angle;
+	L IS_A solver_var;
+		
+		
+	Tc IS_A solver_var;
+	h_r_c IS_A solver_var;
+	Ra IS_A solver_var;
+	tt1 IS_A solver_var;
+	tt2 IS_A solver_var;
+	t1 IS_A solver_var;
+	t2 IS_A solver_var;
+	Nu IS_A solver_var;
+	h_c_c IS_A solver_var;
+	Cres IS_A solver_var;
+	
+	Ts IS_A solver_var;
+	h_r_t IS_A solver_var;
+	h_c_t IS_A solver_var;
+	Rres IS_A solver_var;
+	
+	Ut IS_A solver_var;
+		
+	
+	h_r_c = 5.67e-8 * (Tc + Tp) * (Tc^2 + Tp^2) / (1/Ec + 1/Ep - 1);
+	Ra = 9.8 * B * abs(Tc - Tp) * L^3;
+	tt1 = (1 - 1708/(Ra*cos(B) ) );
+	t1 = (abs(tt1) + tt1 )/ 2;
+	tt2 = (abs(Ra * cos(B)/5830))^(0.3) - 1;
+	t2 = (abs(tt2) + tt2 )/ 2;	
+	Nu = 1 + 1.44 * (1- 1708*((sin(1.8 * B)) ^ 1.6) / (Ra * cos(B))) * t1 + t2;	
+    h_c_c = Nu * K / L;    
+	Cres = 1 / (h_c_c + h_r_c);
+
+	Ts = 0.0552 * (Ta ^ 1.5);
+	h_r_t * (Tc - Ta) = Ec * 5.67e-8 * (Tc^4 - Ts^4);	
+	h_c_t = 10;	
+	Rres = 1/(h_r_t + h_c_t );
+
+	Ut * ( Cres + Rres ) = 1;
+
+	Tc = Tp - Cres * Ut * (Tp-Ta);
+
+
+	METHODS
+		METHOD specify;
+			FIX Ta;
+			FIX Tp;
+			FIX Ec;
+			FIX Ep;
+			FIX K;
+			FIX B;
+			FIX L;
+			
+		END specify;
+
+		METHOD values;
+			
+			Ta := 30 + 273.15;
+			Tp := 90 + 273.15;
+			Ec := 0.8;
+			Ep := 0.95; 
+			K  := 0.0253;
+			B  := 0.785 {rad};
+			L  := 0.02;
+
+			Cres := 10.0;
+			Tc := 300.0;
+		END values;
+
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;		
+	
+END simple;

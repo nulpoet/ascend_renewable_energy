@@ -67,7 +67,7 @@ MODEL Nusselt_number(
 
 	tt1 = (1 - 1708/(Ra*cos(B) ) );
 	t1 = (abs(tt1) + tt1 )/ 2;
-	tt2 = (Ra * cos(B)/5830)^(0.3) - 1;
+	tt2 = (abs(Ra * cos(B)/5830))^(0.3) - 1;
 	t2 = (abs(tt2) + tt2 )/ 2;
 	
 	value = 1 + 1.44 * (1- 1708*((sin(1.8 * B)) ^ 1.6) / (Ra * cos(B))) * t1 + t2;
