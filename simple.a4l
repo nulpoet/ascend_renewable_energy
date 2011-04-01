@@ -79,6 +79,10 @@ MODEL simple;
 		METHOD on_load;
 			RUN specify;
 			RUN values;
-		END on_load;		
+			
+			SOLVER QRSlv;
+		    OPTION convopt 'RELNOM_SCALE';
+    		SOLVE;
+		END on_load;
 	
 END simple;
