@@ -1,0 +1,106 @@
+REQUIRE "atoms.a4l";
+
+MODEL solar;
+
+	Qabs 			IS_A solver_var;
+	ONI 			IS_A solver_var;
+	THETA 			IS_A solver_var;
+	THETAz	 		IS_A solver_var;
+	DEL 			IS_A solver_var;
+	OMEGA			IS_A solver_var;
+	n 				IS_A solver_var;
+	SOLAR_TIME		IS_A solver_var;
+	STANDARD_TIME	IS_A solver_var;
+	DST				IS_A solver_var;
+	Lst				IS_A solver_var;
+	Lloc			IS_A solver_var;
+	E				IS_A solver_var;
+	B				IS_A solver_var;
+	PHI				IS_A solver_var;
+	Iam				IS_A solver_var;
+	Rs				IS_A solver_var;
+	Weff			IS_A solver_var;
+	W				IS_A solver_var;
+	Lspacing		IS_A solver_var;
+	ENDLOSS			IS_A solver_var;
+	F				IS_A solver_var;
+
+	Lsca			IS_A solver_var;
+	Nfield			IS_A solver_var;
+	Nhce			IS_A solver_var;
+	SFAavail		IS_A solver_var;
+
+
+	t1				IS_A solver_var;
+	t2				IS_A solver_var;
+	
+
+	Qabs = ONI * cos(THETA) * Iam * Rs * ENDLOSS * Nfield * Nhce * SFAavail;
+	
+	t1 = cos(THETAz)^2 + (cos(DEL)^2)*(sin(OMEGA)^2);
+	t2^2 = t1;
+	THETA = arccos(t2);
+	
+	DEL = 23.45 * sin(360*( 284+n )/365);
+	OMEGA = (SOLAR_TIME - 12) * 15 *(3.14/180);
+	SOLAR_TIME = STANDARD_TIME - DST + (Lst - Lloc)/15 + E/60;
+	E = 229.18 * (0.000075 + 0.001868*cos(B) - 0.032077*sin(B) - 0.014615*cos(2*B) - 0.04089*sin(2*B));
+	B = (360/365) * (n-1) * (3.14/180);
+	THETAz = cos(DEL)*cos(PHI)*cos(OMEGA) + sin(DEL)*sin(PHI);
+	
+	Iam = 1 + 8.84e-4 * (THETA/cos(THETA)) - 5.369e-5 * (THETA^2)/cos(THETA);
+	
+	Rs = Weff / W;
+	Rs = (Lspacing/W) * (cos(THETAz)/cos(THETA));
+	
+	ENDLOSS = 1 - F * tan(THETA) / Lsca;
+	
+	
+	
+
+	METHODS
+		METHOD specify;
+			FIX ONI;
+			FIX n;
+			FIX Lst;
+			FIX Lloc;
+			FIX DST;
+			FIX STANDARD_TIME;
+			FIX Lspacing;
+			FIX W;
+			FIX F;
+
+			FIX Lsca;
+			FIX Nfield;
+			FIX Nhce;
+			FIX SFAavail;
+			FIX PHI;
+		END specify;
+
+
+		METHOD values;
+			ONI := 60;
+			n := 101;
+			Lst := -105;
+			Lloc := -110;
+			DST := 0;
+			PHI := 37.21 * (3.14/180);
+			STANDARD_TIME := 12;
+			Lspacing := 15;
+			W := 5;
+			F := 5;
+
+			Lsca := 50;
+			Nfield := 0.857;
+			Nhce := 0.832;
+			SFAavail := 1;
+		END values;
+
+
+		METHOD on_load;
+			RUN specify;
+			RUN values;
+		END on_load;
+
+END solar;
+
