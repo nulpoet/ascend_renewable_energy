@@ -31,15 +31,9 @@ MODEL solar;
 	SFAavail		IS_A solver_var;
 
 
-	t1				IS_A solver_var;
-	t2				IS_A solver_var;
-	
-
 	Qabs = ONI * cos(THETA) * Iam * Rs * ENDLOSS * Nfield * Nhce * SFAavail;
-	
-	t1 = cos(THETAz)^2 + (cos(DEL)^2)*(sin(OMEGA)^2);
-	t2^2 = t1;
-	THETA = arccos(t2);
+
+	THETA = arccos( (cos(THETAz)^2 + (cos(DEL)^2)*(sin(OMEGA)^2))^0.5);
 	
 	DEL = 23.45 * sin(360*( 284+n )/365);
 	OMEGA = (SOLAR_TIME - 12) * 15 *(3.14/180);
