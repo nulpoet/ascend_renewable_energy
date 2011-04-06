@@ -1,0 +1,10 @@
+REQUIRE "system.a4l";   (* => system.a4l, basemodel.a4l *)
+REQUIRE "measures.a4l"; (* => measures.a4l *)
+PROVIDE "mytypes.a4l";
+
+ATOM intensity REFINES solver_var
+    DIMENSION W/L^2
+    DEFAULT 1{watt/m^2};
+END intensity;
+
+
