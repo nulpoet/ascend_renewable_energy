@@ -2,11 +2,11 @@ REQUIRE "atoms.a4l";
 REQUIRE "vikram/mytypes.a4l";
 
 REQUIRE "johnpye/thermo_types.a4c";
-IMPORT "johnpye/fprops/helmholtz";
+
 
 MODEL Qabsorbed;
 
-	Qabs 			IS_A intensity;
+	value 			IS_A intensity;
 	DNI 			IS_A intensity;
 	THETA 			IS_A angle;
 	THETAz	 		IS_A angle;
@@ -35,7 +35,7 @@ MODEL Qabsorbed;
 	SFAavail		IS_A fraction;
 
 
-	Qabs = DNI * cos(THETA) * Iam * Rs * ENDLOSS * Nfield * Nhce * SFAavail;
+	value = DNI * cos(THETA) * Iam * Rs * ENDLOSS * Nfield * Nhce * SFAavail;
 
 	THETA = arccos( (cos(THETAz)^2 + (cos(DEL)^2)*(sin(OMEGA)^2))^0.5);
 	
@@ -76,9 +76,8 @@ MODEL Qabsorbed;
 			FIX Nhce;
 			FIX SFAavail;
 			FIX PHI;
-		END specify;
-
-
+		END specify;	
+		
 		METHOD values;
 			DNI := 60 {watt/m^2};
 			n := 31 {day}; (* 31st January *)
@@ -97,9 +96,8 @@ MODEL Qabsorbed;
 			SFAavail := 1;
 			
 			(* guesses *)
-			Qabs := 100 {watt/m^2};
+			value := 100 {watt/m^2};
 		END values;
-
 
 		METHOD on_load;
 			RUN specify;
@@ -107,6 +105,19 @@ MODEL Qabsorbed;
 		END on_load;
 
 END Qabsorbed;
+
+
+MODEL test_Qabsorbed;
+
+	Qabs IS_A Qabsorbed;
+
+	METHODS	
+		METHOD on_load;
+			RUN Qabs.specify;
+			RUN Qabs.values;
+		END on_load;
+		
+END test_Qabsorbed;
 
 
 MODEL HeatLossFiels_air(
@@ -122,7 +133,7 @@ MODEL HeatLossFiels_air(
 	b0 IS_A solver_var;
 	b1 IS_A solver_var;
 	
-	HLfield IS_A solver_var;
+	HLfield IS_A heatloss_per_unit_lenght;
 
 	HLfield * (To-Ti) = (a0*(To-Ti) + (a1/2)*(To^2 - Ti^2) + (a2/3)*(To^3 - Ti^3) + (a3/4)*(To^4 - Ti^4) * DNI*(b0*(To-Ti) + (b1/3)*(To^3 - Ti^3)));
 
@@ -141,18 +152,13 @@ MODEL HeatLossFiels_air(
 			a1 :=  8.374490E-01 {watt/m^2/K};
 			a2 :=  0.00         {watt/m^2/K^2};
 			a3 :=  4.620143E-06 {watt/m^2/K^3};
-			b0 :=  6.983190E-02	{1};
-			b1 :=  9.312703E-08 {1/K^2};
+			b0 :=  6.983190E-02	{m};
+			b1 :=  9.312703E-08 {m/K^2};
 		END values;
+		
 END HeatLossFiels_air;
 
 
-
-
-MODEL helmholtz_conf;
-	component IS_A symbol_constant;
-	component :== 'methane';
-END helmholtz_conf;
 
 
 MODEL Qcollected;	
@@ -169,74 +175,43 @@ MODEL Qcollected;
 	SfHL IS_A intensity;
 	
 	Qcoll IS_A intensity;
-	Qabs IS_A intensity;
+	Qabs IS_A Qabsorbed;
 	delT IS_A delta_temperature;
 
 	rho_i IS_A mass_density;
 	hi IS_A specific_enthalpy;
-	ui IS_A specific_energy;
-	pi IS_A pressure;
 	
-	rho_o IS_A mass_density;
 	ho IS_A specific_enthalpy;
-	uo IS_A specific_energy;
-	po IS_A pressure;
-	
+		
 	delHfield IS_A specific_enthalpy;
 	
 	Lsca IS_A distance;
 	Nsca IS_A factor;
 	Vhtf IS_A volumetric_flowrate;
 	
+	
+	
 	RecHL * width = 1.0 * hl.HLfield;
 
 	delT * 2 = (To + Ti) - Tambient * 2;
-	SfHL = 0.01693*delT - 0.0001683*(delT^2) + 0.78e-7*(delT^3);
+	SfHL = 0.01693{watt/m^2/K}*delT - 0.0001683{watt/m^2/K^2}*(delT^2) + 0.78e-7{watt/m^2/K^3}*(delT^3);
 	
-	Qcoll = Qabs - (RecHL + SfHL);
+	Qcoll = Qabs.value - (RecHL + SfHL);
 
+
+	rho_i = 1074.0{kg/m^3} - 0.6367{kg/m^3/K}*Ti - 0.0007762{kg/m^3/K^2}*Ti^2;
 	delHfield * (Vhtf * rho_i) = Qcoll * width * Lsca * Nsca;
+
+	hi = 1000{m^2/s^2} * (-18.34 + 1.498{1/K}*Ti + 0.001377{1/K^2}*Ti^2);
+	ho = 1000{m^2/s^2} * (-18.34 + 1.498{1/K}*To + 0.001377{1/K^2}*To^2);
 	delHfield = abs(hi - ho);
-
-	conf IS_A helmholtz_conf;
-
-	rho_i = 1074.0 - 0.6367*(Ti-273.15) - 0.0007762*((Ti-273.15)^2);
-	rho_o = 1074.0 - 0.6367*(To-273.15) - 0.0007762*((To-273.15)^2);
-
-	props1: helmholtz_p(
-		Ti, rho_i : INPUT;
-		pi : OUTPUT;
-		conf : DATA
-	);
-
-	props2: helmholtz_p(
-		To, rho_o : INPUT;
-		po : OUTPUT;
-		conf : DATA
-	);
-
-	props3: helmholtz_u(
-		Ti, rho_i : INPUT;
-		ui : OUTPUT;
-		conf : DATA
-	);
-
-	props4: helmholtz_u(
-		To, rho_o : INPUT;
-		uo : OUTPUT;
-		conf : DATA
-	);
-
-	rho_i*(hi - ui) = pi;
-	rho_o*(ho - uo) = po;
-
-
+	
+	
 	METHODS	
 		METHOD specify;		
 			FIX DNI;
 			FIX Ti;
 			FIX Tambient;
-			FIX Qabs;
 			
 			FIX width;
 			FIX Lsca;
@@ -244,29 +219,43 @@ MODEL Qcollected;
 			FIX Vhtf;
 			
 			RUN hl.specify;
+			RUN Qabs.specify;
 		END specify;
 	
 		METHOD values;
 			DNI := 60 {watt/m^2};
-			Ti := 60{K} + 273.15{K};
-			Tambient := 30{K} + 273.15{K};
-			Qabs := 1000 {watt/m^2};
-
+			Ti := 60{K};
+			Tambient := 30{K};
+			
 			width := 5{m};
 			Lsca := 50 {m};
 			Nsca := 256;
 			Vhtf := 400{m^3/hour};
-			
-			RUN hl.values;
-		END values;
 
+			(* guesses *)
+			To := 40{K};
+		
+			RUN hl.values;
+			RUN Qabs.values;
+		END values;
+		
 		METHOD on_load;
 			RUN specify;
 			RUN values;
 		END on_load;
-
 END Qcollected;
 
 
 
+MODEL test_Qcollected;
+
+	Qcoll IS_A Qcollected;
+
+	METHODS
+		METHOD on_load;
+			RUN Qcoll.specify;
+			RUN Qcoll.values;
+		END on_load;
+		
+END test_Qcollected;
 
