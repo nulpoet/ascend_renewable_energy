@@ -120,11 +120,13 @@ MODEL test_Qabsorbed;
 END test_Qabsorbed;
 
 
-MODEL HeatLossFiels_air(
-	DNI WILL_BE intensity;
-	Ti WILL_BE temperature;
-	To WILL_BE temperature;
-	);
+MODEL HeatLossField;
+	DNI IS_A intensity;
+	Ti IS_A temperature;
+	To IS_A temperature;
+	
+	type IS_A variable;
+	HCEfra IS_A fraction;
 
 	a0 IS_A solver_var;
 	a1 IS_A solver_var;
@@ -135,7 +137,7 @@ MODEL HeatLossFiels_air(
 	
 	HLfield IS_A heatloss_per_unit_lenght;
 
-	HLfield * (To-Ti) = (a0*(To-Ti) + (a1/2)*(To^2 - Ti^2) + (a2/3)*(To^3 - Ti^3) + (a3/4)*(To^4 - Ti^4) * DNI*(b0*(To-Ti) + (b1/3)*(To^3 - Ti^3)));
+	HLfield * (To-Ti) = HCEfra * (a0*(To-Ti) + (a1/2)*(To^2 - Ti^2) + (a2/3)*(To^3 - Ti^3) + (a3/4)*(To^4 - Ti^4) * DNI*(b0*(To-Ti) + (b1/3)*(To^3 - Ti^3)));
 
 	METHODS	
 		METHOD specify;		
@@ -145,23 +147,57 @@ MODEL HeatLossFiels_air(
 			FIX a3;
 			FIX b0;
 			FIX b1;
+			
+			FIX DNI;
+			FIX Ti;			
 		END specify;
 	
-		METHOD values;			
+		METHOD values;		
+			DNI := 60 {watt/m^2};
+			Ti := 30 {K};
+		
+			IF (type = 1) THEN
+			(* air *)
 			a0 := -2.247372E+01 {watt/m^2};
 			a1 :=  8.374490E-01 {watt/m^2/K};
 			a2 :=  0.00         {watt/m^2/K^2};
 			a3 :=  4.620143E-06 {watt/m^2/K^3};
 			b0 :=  6.983190E-02	{m};
 			b1 :=  9.312703E-08 {m/K^2};
-		END values;
-		
-END HeatLossFiels_air;
+			END IF;
+			
+			IF (type = 2) THEN
+			(* vaccum *)
+			a0 := -2.247372E+01 {watt/m^2};
+			a1 :=  8.374490E-01 {watt/m^2/K};
+			a2 :=  0.00         {watt/m^2/K^2};
+			a3 :=  4.620143E-06 {watt/m^2/K^3};
+			b0 :=  6.983190E-02	{m};
+			b1 :=  9.312703E-08 {m/K^2};
+			END IF;
+			
+			IF (type = 3) THEN
+			(* hydrogen *)
+			a0 := -2.247372E+01 {watt/m^2};
+			a1 :=  8.374490E-01 {watt/m^2/K};
+			a2 :=  0.00         {watt/m^2/K^2};
+			a3 :=  4.620143E-06 {watt/m^2/K^3};
+			b0 :=  6.983190E-02	{m};
+			b1 :=  9.312703E-08 {m/K^2};
+			END IF;
+		END values;		
+END HeatLossField;
 
 
 
 
-MODEL Qcollected;	
+MODEL Qcollected;
+	
+	(* variables *)
+    field_types IS_A set OF symbol_constant;
+    field_types :== ['air','vaccum','hydrogen'];
+
+
 	DNI IS_A intensity;
 	
 	Ti IS_A temperature;
@@ -169,7 +205,6 @@ MODEL Qcollected;
 	Tambient IS_A temperature;
 	
 	width IS_A distance;	
-	hl IS_A HeatLossFiels_air(DNI, Ti, To);
 	
 	RecHL IS_A intensity;
 	SfHL IS_A intensity;
@@ -188,11 +223,23 @@ MODEL Qcollected;
 	Lsca IS_A distance;
 	Nsca IS_A factor;
 	Vhtf IS_A volumetric_flowrate;
-	
-	
-	
-	RecHL * width = 1.0 * hl.HLfield;
 
+
+	(* parts *)
+	hlfield[field_types] IS_A HeatLossField;
+	
+	
+	(* interconnecting *)
+    To,
+    hlfield['air'].To,
+    hlfield['vaccum'].To,
+    hlfield['hydrogen'].To          ARE_THE_SAME;
+
+	
+	(* equations *)
+
+	RecHL * width = SUM[hlfield[field_types].HLfield];
+	
 	delT * 2 = (To + Ti) - Tambient * 2;
 	SfHL = 0.01693{watt/m^2/K}*delT - 0.0001683{watt/m^2/K^2}*(delT^2) + 0.78e-7{watt/m^2/K^3}*(delT^3);
 	
@@ -217,11 +264,15 @@ MODEL Qcollected;
 			FIX Lsca;
 			FIX Nsca;
 			FIX Vhtf;
+
+			FIX hlfield[field_types].HCEfra;
+			FIX hlfield[field_types].type;
 			
-			RUN hl.specify;
+			RUN hlfield[field_types].specify;
+			
 			RUN Qabs.specify;
 		END specify;
-	
+		
 		METHOD values;
 			DNI := 60 {watt/m^2};
 			Ti := 60{K};
@@ -232,11 +283,19 @@ MODEL Qcollected;
 			Nsca := 256;
 			Vhtf := 400{m^3/hour};
 
-			(* guesses *)
-			To := 40{K};
-		
-			RUN hl.values;
+			hlfield['air'].type := 1;
+			hlfield['vaccum'].type := 2;
+			hlfield['hydrogen'].type := 3;
+
+			hlfield['air'].HCEfra := 1.0;
+			hlfield['vaccum'].HCEfra := 0.0;
+			hlfield['hydrogen'].HCEfra := 0.0;
+
+			RUN hlfield[field_types].values;
 			RUN Qabs.values;
+
+			(* guesses *)
+			To := 40{K};		
 		END values;
 		
 		METHOD on_load;
