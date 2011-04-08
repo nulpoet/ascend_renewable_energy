@@ -236,8 +236,7 @@ MODEL Qcollected;
 	RecHL IS_A intensity;   (* Receiver heat loss, W/m2 *) 
 	SfHL IS_A intensity;    (* Soalr field piping heat loss, W/m2 *) 
 	
-	Qcoll IS_A intensity;   
-	Qabs IS_A Qabsorbed;
+	value IS_A intensity;
 	delT IS_A delta_temperature;
 
 	rho_i IS_A mass_density;
@@ -252,51 +251,45 @@ MODEL Qcollected;
 	Vhtf IS_A volumetric_flowrate; (* m3/hr *) 
 
 
-	(*  parts  *) 
+	(*  parts  *)
+	Qabs IS_A Qabsorbed;
 	hlfield[field_types] IS_A HeatLossField;
-	
+		
 	
 	(*  interconnecting  *)  (* Annulus types- air, vaccum, hydrogen *) 
     To,
     hlfield['air'].To,
     hlfield['vaccum'].To,
-    hlfield['hydrogen'].To          ARE_THE_SAME;
+    hlfield['hydrogen'].To	ARE_THE_SAME;
+    DNI, Qabs.DNI			ARE_THE_SAME;
+    Lsca, Qabs.Lsca			ARE_THE_SAME;
 
 	
-	(*  equations  *) 
-
-	RecHL * width = SUM[hlfield[field_types].HLfield];
-	
+	(*  equations  *)
+	RecHL * width = SUM[hlfield[field_types].HLfield];	
 	delT * 2 = (To + Ti) - Tambient * 2;
-	SfHL = 0.01693{watt/m^2/K}*delT - 0.0001683{watt/m^2/K^2}*(delT^2) + 0.78e-7{watt/m^2/K^3}*(delT^3);
-	
-	Qcoll = Qabs.value - (RecHL + SfHL);
-
-
+	SfHL = 0.01693{watt/m^2/K}*delT - 0.0001683{watt/m^2/K^2}*(delT^2) + 0.78e-7{watt/m^2/K^3}*(delT^3);	
+	value = Qabs.value - (RecHL + SfHL);
 	rho_i = 1074.0{kg/m^3} - 0.6367{kg/m^3/K}*Ti - 0.0007762{kg/m^3/K^2}*Ti^2;
-	delHfield * (Vhtf * rho_i) = Qcoll * width * Lsca * Nsca;
-
+	delHfield * (Vhtf * rho_i) = value * width * Lsca * Nsca;
 	hi = 1000{m^2/s^2} * (-18.34 + 1.498{1/K}*Ti + 0.001377{1/K^2}*Ti^2);
 	ho = 1000{m^2/s^2} * (-18.34 + 1.498{1/K}*To + 0.001377{1/K^2}*To^2);
 	delHfield = abs(hi - ho);
 	
 	
-	METHODS	
-		METHOD specify;		
+	METHODS
+		METHOD specify;
 			FIX DNI;
 			FIX Ti;
-			FIX Tambient;
-			
+			FIX Tambient;			
 			FIX width;
 			FIX Lsca;
 			FIX Nsca;
 			FIX Vhtf;
-
 			FIX hlfield[field_types].HCEfra;
 			FIX hlfield[field_types].type;
 			
-			RUN hlfield[field_types].specify;
-			
+			RUN hlfield[field_types].specify;			
 			RUN Qabs.specify;
 		END specify;
 		
@@ -317,6 +310,19 @@ MODEL Qcollected;
 			hlfield['air'].HCEfra := 1.0;
 			hlfield['vaccum'].HCEfra := 0.0;
 			hlfield['hydrogen'].HCEfra := 0.0;
+
+
+			Qabs.Lst := -105 {deg};
+			Qabs.Lloc := -110 {deg};
+			Qabs.DST := 0 {hour};
+			Qabs.PHI := 37.21 {deg};
+			Qabs.Standard_Time := 15 {hour};
+			Qabs.Lspacing := 15 {m};
+			Qabs.W := 5 {m};
+			Qabs.F := 5 {m};
+			Qabs.Nfield := 0.857;
+			Qabs.Nhce := 0.832;
+			Qabs.SFAavail := 1;
 
 			RUN hlfield[field_types].values;
 			RUN Qabs.values;
