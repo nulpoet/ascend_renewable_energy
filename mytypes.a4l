@@ -17,3 +17,19 @@ ATOM heatloss_per_unit_lenght REFINES solver_var
     DEFAULT 1{watt/m};
 END heatloss_per_unit_lenght;
 
+ATOM rayleigh_number REFINES solver_var
+    DIMENSION  P*TMP*L^4/T^2
+    DEFAULT 1{rad*K*m^4/s^2};
+END rayleigh_number;
+
+ATOM inv_heat_transfer_coefficient REFINES solver_var
+	DIMENSION T^3*TMP/M
+	DEFAULT 0.2{m^2*K/W};
+END inv_heat_transfer_coefficient;
+
+ATOM energy_per_unit_area REFINES solver_var
+    DIMENSION M/T^2
+    DEFAULT 1.0{J/m^2};
+END energy_per_unit_area;
+
+
