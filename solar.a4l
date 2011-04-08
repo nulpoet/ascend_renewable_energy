@@ -295,7 +295,7 @@ MODEL Qcollected;
 			RUN Qabs.values;
 
 			(* guesses *)
-			To := 40{K};		
+			To := 100{K};
 		END values;
 		
 		METHOD on_load;
