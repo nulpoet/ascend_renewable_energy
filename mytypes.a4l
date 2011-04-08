@@ -3,8 +3,17 @@ REQUIRE "measures.a4l"; (* => measures.a4l *)
 PROVIDE "mytypes.a4l";
 
 ATOM intensity REFINES solver_var
-    DIMENSION W/L^2
+    DIMENSION M/T^3
     DEFAULT 1{watt/m^2};
 END intensity;
 
+ATOM volumetric_flowrate REFINES solver_var
+    DIMENSION L^3/T
+    DEFAULT 100{m^3/hour};
+END volumetric_flowrate;
+
+ATOM heatloss_per_unit_lenght REFINES solver_var
+    DIMENSION M*L^2/T^3/L
+    DEFAULT 1{watt/m};
+END heatloss_per_unit_lenght;
 
