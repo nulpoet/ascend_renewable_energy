@@ -39,12 +39,12 @@ MODEL Qabsorbed;
 
 	THETA = arccos( (cos(THETAz)^2 + (cos(DEL)^2)*(sin(OMEGA)^2))^0.5);
 	
-	DEL = 23.45 * sin(360*( 284+n )/365);
-	OMEGA = (Solar_Time - 12) * 15 *(3.14/180);
+	DEL = 23.45{deg} * sin(360{deg}* (284{day}+n)/365{day});
+	OMEGA = (Solar_Time - 12{hour}) * 15{deg/hour};
 	Solar_Time = Standard_Time - DST + (Lst - Lloc)/15{deg/hour} + E*(1{hour})/(60{min});
 	E = 229.18{min} * (0.000075 + 0.001868*cos(B) - 0.032077*sin(B) - 0.014615*cos(2*B) - 0.04089*sin(2*B));
-	B = (360/365) * (n-1) * (3.14/180);
-	THETAz = cos(DEL)*cos(PHI)*cos(OMEGA) + sin(DEL)*sin(PHI);
+	B = 360{deg} * (n-1{day})/365{day};
+	THETAz = arccos( cos(DEL)*cos(PHI)*cos(OMEGA) + sin(DEL)*sin(PHI) );
 	
 	Iam = 1 + 8.84e-4 * (THETA/cos(THETA)) - 5.369e-5 * (THETA^2)/cos(THETA);
 	
